@@ -33,6 +33,7 @@ from typing import Any, Dict, Literal, Optional
 
 import requests
 from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, HttpUrl, model_validator
 
 # =========================
@@ -303,6 +304,15 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AI Inspection API", version="0.1.0", lifespan=lifespan)
+
+# Allow all origins (for development)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Change to specific origins in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # =========================
