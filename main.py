@@ -19,7 +19,7 @@ Notes
 Run
 ---
 pip install fastapi uvicorn pydantic requests
-uvicorn server:app --host 0.0.0.0 --port 8000 --reload
+uvicorn main:app --host 0.0.0.0 --port 9002 --reload
 """
 
 from __future__ import annotations
