@@ -342,9 +342,6 @@ async def run_image_measure_job(app: FastAPI, job_id: str, req: CreateJobRequest
                 sx, sy = app.state.scaler.compute_scale(measured)
 
                 # 7) Choose the requested object instance to report
-                #    For now: pick the highest-score detection among matching labels.
-                #    NOTE: Our measured list doesn't include score; use detections list to pick instance bbox,
-                #    then match to nearest measured bbox by IoU.
                 wanted = req.object.type  # "tyre" or "driver_door"
                 wanted_label = "tyre" if wanted == "tyre" else "door"
 
@@ -397,12 +394,31 @@ async def run_image_measure_job(app: FastAPI, job_id: str, req: CreateJobRequest
                     min=req.object.target.min,
                     max=req.object.target.max,
                 )
-                # Policy: compare HEIGHT (proxy for diameter/door height)
-                status_pf = "pass" if check_pass_fail(dims_mm["height"], target) else "fail"
+
+                if wanted == "tyre":
+                    # For tyres, calculate diameter
+                    measured_val = dims_mm["height"]
+                    status_pf = "pass" if check_pass_fail(measured_val, target) else "fail"
+
+                    dimensions_out = {
+                        "exact": float(measured_val),
+                        "unit": "mm",
+                    }
+                    txt = f"{wanted} diameter={measured_val:}mm => {status_pf}"
+                else:
+                    # Policy: compare HEIGHT (proxy for door height)
+                    measured_val = dims_mm["height"]
+                    status_pf = "pass" if check_pass_fail(measured_val, target) else "fail"
+
+                    dimensions_out = {
+                        "width": float(dims_mm["width"]),
+                        "height": float(dims_mm["height"]),
+                        "unit": "mm",
+                    }
+                    txt = f"{wanted} w={dims_mm['width']:.1f}mm h={dims_mm['height']:.1f}mm => {status_pf}"
 
                 # 9) Create final overlay showing mm dimensions + pass/fail for requested object only
                 overlay_final = overlay_px.copy()
-                txt = f"{wanted} w={dims_mm['width']:.1f}mm h={dims_mm['height']:.1f}mm => {status_pf}"
                 draw = ImageDraw.Draw(overlay_final)
                 try:
                     font = ImageFont.load_default()
@@ -421,11 +437,7 @@ async def run_image_measure_job(app: FastAPI, job_id: str, req: CreateJobRequest
                     "overlay_url": overlay_url,
                     "prediction": {
                         "type": wanted,
-                        "dimensions": {
-                            "width": float(dims_mm["width"]),
-                            "height": float(dims_mm["height"]),
-                            "unit": "mm",
-                        },
+                        "dimensions": dimensions_out,
                         "status": status_pf,
                     },
                 }
